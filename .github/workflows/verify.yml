@@ -1,23 +1,33 @@
-name: zero-cost-self-hosted-verify
+name: order-004-zero-cost-self-hosted-verify
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - order-003-zero-cost-compute-market-v1
-  pull_request:
-    branches:
-      - order-002-ariaos-business-os-v1
+
+concurrency:
+  group: order-004-verify-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   exact-head:
-    runs-on: self-hosted
+    runs-on: [self-hosted, linux, oracle-free, iaffice]
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: order-004-sniper-autonomous-revenue-engine-v1
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
+      - name: Exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "order-004-sniper-autonomous-revenue-engine-v1"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          echo "ARIA_HEAD_SHA=$GITHUB_SHA" >> "$GITHUB_ENV"
+      - run: bash scripts/bootstrap_verify_tools.sh
       - run: npm ci --offline --ignore-scripts
       - run: npm run typecheck
       - run: npm test
@@ -28,4 +38,6 @@ jobs:
       - run: npm run benchmark:compute
       - run: npm run chaos:compute
       - run: npm run security
-      - run: npm run doctor
+      - run: python3 scripts/oracle_executor_selftest.py
+      - run: npm run doctor:004
+      - run: python3 scripts/ui_smoke_order004.py
